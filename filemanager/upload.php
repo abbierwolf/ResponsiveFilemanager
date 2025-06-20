@@ -50,8 +50,21 @@ try {
             $cycle = false;
         }
         if (file_exists($path . "config.php")) {
+            $configMain = $config;
             $configTemp = include $path . 'config.php';
-            $config = array_merge($config, $configTemp);
+            if(is_array($configTemp) && count($configTemp) > 0){
+                $config = array_merge($configMain, $configTemp);
+                $config['ext'] = array_merge(
+                    $config['ext_img'],
+                    $config['ext_file'],
+                    $config['ext_misc'],
+                    $config['ext_video'],
+                    $config['ext_music']
+                );
+            }
+            else{
+                $config = $configMain;
+            }
             //TODO switch to array
             $cycle = false;
         }
@@ -63,7 +76,6 @@ try {
     if (trans("Upload_error_messages") !== "Upload_error_messages") {
         $messages = trans("Upload_error_messages");
     }
-
     if ($config['url_upload']) {
         // make sure the length is limited to avoid DOS attacks
         if (isset($_POST['url']) && strlen($_POST['url']) < 2000) {
@@ -71,7 +83,7 @@ try {
             $urlPattern = '/^(https?:\/\/)?([\da-z\.-]+\.[a-z\.]{2,6}|[\d\.]+)([\/?=&#]{1}[\da-z\.-]+)*[\/\?]?$/i';
 
             if (preg_match($urlPattern, $url)) {
-                $temp = tempnam('/tmp','RF');
+                $temp = tempnam('/tmp', 'RF');
 
                 $ch = curl_init($url);
                 $fp = fopen($temp, 'wb');
@@ -85,17 +97,18 @@ try {
                 curl_close($ch);
                 fclose($fp);
 
-                $_FILES['files'] = array(
-                    'name' => array(basename($_POST['url'])),
-                    'tmp_name' => array($temp),
-                    'size' => array(filesize($temp)),
+                $_FILES['files'] = [
+                    'name' => [basename($_POST['url'])],
+                    'tmp_name' => [$temp],
+                    'size' => [filesize($temp)],
                     'type' => null
-                );
+                ];
             } else {
                 throw new Exception('Is not a valid URL.');
             }
         }
     }
+
 
     if ($config['mime_extension_rename']) {
         $info = pathinfo($_FILES['files']['name'][0]);
@@ -137,7 +150,7 @@ try {
         exit();
     }
 
-    $uploadConfig = array(
+    $uploadConfig = [
         'config' => $config,
         'storeFolder' => $storeFolder,
         'storeFolderThumb' => $storeFolderThumb,
@@ -148,7 +161,7 @@ try {
         'max_file_size' => $config['MaxSizeUpload'] * 1024 * 1024,
         'correct_image_extensions' => true,
         'print_response' => false
-    );
+    ];
 
     if (!$config['ext_blacklist']) {
         $uploadConfig['accept_file_types'] = '/\.(' . implode('|', $config['ext']) . ')$/i';
@@ -179,21 +192,21 @@ try {
     //print_r($_FILES);die();
     $upload_handler = new UploadHandler($uploadConfig, true, $messages);
 } catch (Exception $e) {
-    $return = array();
+    $return = [];
 
     if ($_FILES['files']) {
         foreach ($_FILES['files']['name'] as $i => $name) {
-            $return[] = array(
+            $return[] = [
                 'name' => $name,
                 'error' => $e->getMessage(),
                 'size' => $_FILES['files']['size'][$i],
                 'type' => $_FILES['files']['type'][$i]
-            );
+            ];
         }
 
-        echo json_encode(array("files" => $return));
+        echo json_encode(["files" => $return]);
         return;
     }
 
-    echo json_encode(array("error" => $e->getMessage()));
+    echo json_encode(["error" => $e->getMessage()]);
 }
